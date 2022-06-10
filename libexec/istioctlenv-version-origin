@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Summary: Explain how the current istioctl version is set
+# Usage: istioctlenv-version-origin
+
+set -e
+[ -n "$ISTIOCTLENV_DEBUG" ] && set -x
+
+unset ISTIOCTLENV_VERSION_ORIGIN
+
+OLDIFS="$IFS"
+IFS=$'\n' scripts=(`istioctlenv-hooks version-origin`)
+IFS="$OLDIFS"
+for script in "${scripts[@]}"; do
+  source "$script"
+done
+
+if [ -n "$ISTIOCTLENV_VERSION_ORIGIN" ]; then
+  echo "$ISTIOCTLENV_VERSION_ORIGIN"
+elif [ -n "$ISTIOCTLENV_VERSION" ]; then
+  echo "ISTIOCTLENV_VERSION environment variable"
+else
+  istioctlenv-version-file
+fi

@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+#
+# Summary: Run an executable with the selected istioctl version
+#
+# Usage: istioctlenv exec <command> [arg1 arg2...]
+#
+# Runs an executable by first preparing PATH so that the selected
+# istioctl version's `bin' directory is at the front.
+set -e
+[ -n "$ISTIOCTLENV_DEBUG" ] && set -x
+
+# Provide istioctlenv completions
+if [ "$1" = "--complete" ]; then
+  exec istioctlenv-shims --short
+fi
+
+ISTIOCTLENV_VERSION="$(istioctlenv-version-name)"
+ISTIOCTLENV_COMMAND="$1"
+
+if [ -z "$ISTIOCTLENV_COMMAND" ]; then
+  istioctlenv-help --usage exec >&2
+  exit 1
+fi
+
+export ISTIOCTLENV_VERSION
+ISTIOCTLENV_COMMAND_PATH="$(istioctlenv-which "$ISTIOCTLENV_COMMAND")"
+ISTIOCTLENV_BIN_PATH="${ISTIOCTLENV_COMMAND_PATH%/*}"
+
+OLDIFS="$IFS"
+IFS=$'\n' scripts=(`istioctlenv-hooks exec`)
+IFS="$OLDIFS"
+for script in "${scripts[@]}"; do
+  source "$script"
+done
+
+shift 1
+
+export PATH="${ISTIOCTLENV_BIN_PATH}:${PATH}"
+exec -a "$ISTIOCTLENV_COMMAND" "$ISTIOCTLENV_COMMAND_PATH" "$@"

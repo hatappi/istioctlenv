@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Summary: Writes specified version(s) to the specified file if the version(s) exist
+# Usage: istioctlenv version-file-write <file> <version>
+
+set -e
+[ -n "$ISTIOCTLENV_DEBUG" ] && set -x
+
+ISTIOCTLENV_VERSION_FILE="$1"
+shift || true
+versions=("$@")
+
+if [ -z "$versions" ] || [ -z "$ISTIOCTLENV_VERSION_FILE" ]; then
+  istioctlenv-help --usage version-file-write >&2
+  exit 1
+fi
+
+# Make sure the specified version is installed.
+istioctlenv-prefix "${versions[@]}" >/dev/null
+
+# Write the version out to disk.
+# Create an empty file. Using "rm" might cause a permission error.
+> "$ISTIOCTLENV_VERSION_FILE"
+for version in "${versions[@]}"; do
+  echo "$version" >> "$ISTIOCTLENV_VERSION_FILE"
+done

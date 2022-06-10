@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+#
+# Summary: Set or show the shell-specific istioctl version
+#
+# Usage: istioctlenv shell <version>
+#        istioctlenv shell --unset
+#
+# Sets a shell-specific istioctl version by setting the `ISTIOCTLENV_VERSION'
+# environment variable in your shell. This version overrides local
+# application-specific versions and the global version.
+#
+# <version> should be a string matching a istioctl version known to istioctlenv.
+# The special version string `system' will use your default system istioctl.
+# Run `istioctlenv versions' for a list of available istioctl versions.
+
+set -e
+[ -n "$ISTIOCTLENV_DEBUG" ] && set -x
+
+# Provide istioctlenv completions
+if [ "$1" = "--complete" ]; then
+  echo --unset
+  echo system
+  exec istioctlenv-versions --bare
+fi
+
+versions=("$@")
+shell="$(basename "${ISTIOCTLENV_SHELL:-$SHELL}")"
+
+if [ -z "$versions" ]; then
+  if [ -z "$ISTIOCTLENV_VERSION" ]; then
+    echo "istioctlenv: no shell-specific version configured" >&2
+    exit 1
+  else
+    echo "echo \"\$ISTIOCTLENV_VERSION\""
+    exit
+  fi
+fi
+
+if [ "$versions" = "--unset" ]; then
+  case "$shell" in
+  fish )
+    echo "set -e ISTIOCTLENV_VERSION"
+    ;;
+  * )
+    echo "unset ISTIOCTLENV_VERSION"
+    ;;
+  esac
+  exit
+fi
+
+# NOTE: Make sure the specified version is installed.
+if istioctlenv-prefix "${versions[@]}" >/dev/null; then
+  OLDIFS="$IFS"
+  IFS=: version="${versions[*]}"
+  IFS="$OLDIFS"
+  case "$shell" in
+  fish )
+    echo "set -gx ISTIOCTLENV_VERSION \"${version}\""
+    ;;
+  * )
+    echo "export ISTIOCTLENV_VERSION=\"${version}\""
+    ;;
+  esac
+else
+  # NOTE: Do nothing, but unsuccessfully.
+  echo "false"
+  exit 1
+fi

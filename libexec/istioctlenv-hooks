@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# Summary: List hook scripts for a given istioctlenv command
+# Usage: istioctlenv hooks <command>
+
+set -e
+[ -n "$ISTIOCTLENV_DEBUG" ] && set -x
+
+# Provide istioctlenv completions
+if [ "$1" = "--complete" ]; then
+  echo exec
+  echo rehash
+  echo version-name
+  echo version-origin
+  echo which
+  exit
+fi
+
+ISTIOCTLENV_COMMAND="$1"
+if [ -z "$ISTIOCTLENV_COMMAND" ]; then
+  istioctlenv-help --usage hooks >&2
+  exit 1
+fi
+
+if ! enable -f "${BASH_SOURCE%/*}"/istioctlenv-realpath.dylib realpath 2>/dev/null; then
+  if [ -n "$ISTIOCTLENV_NATIVE_EXT" ]; then
+    echo "istioctlenv: failed to load \`realpath' builtin" >&2
+    exit 1
+  fi
+READLINK=$(type -p greadlink readlink | head -1)
+if [ -z "$READLINK" ]; then
+  echo "istioctlenv: cannot find readlink - are you missing GNU coreutils?" >&2
+  exit 1
+fi
+
+resolve_link() {
+  $READLINK "$1"
+}
+
+realpath() {
+  local cwd="$PWD"
+  local path="$1"
+  local name
+
+  while [ -n "$path" ]; do
+    name="${path##*/}"
+    [ "$name" = "$path" ] || cd "${path%/*}"
+    path="$(resolve_link "$name" || true)"
+  done
+
+  echo "${PWD}/$name"
+  cd "$cwd"
+}
+fi
+
+IFS=: hook_paths=($ISTIOCTLENV_HOOK_PATH)
+
+shopt -s nullglob
+for path in "${hook_paths[@]}"; do
+  for script in "$path/$ISTIOCTLENV_COMMAND"/*.bash; do
+    realpath "$script"
+  done
+done
+shopt -u nullglob

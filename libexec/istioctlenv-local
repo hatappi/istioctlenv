@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+#
+# Summary: Set or show the local application-specific istioctl version
+#
+# Usage: istioctlenv local <version>
+#        istioctlenv local --unset
+#
+# Sets the local application-specific istioctl version by writing the
+# version name to a file named `.istioctl-version'.
+#
+# When you run a istioctl command, istioctlenv will look for a `.istioctl-version'
+# file in the current directory and each parent directory. If no such
+# file is found in the tree, istioctlenv will use the global istioctl version
+# specified with `istioctlenv global'. A version specified with the
+# `ISTIOCTLENV_VERSION' environment variable takes precedence over local
+# and global versions.
+#
+# <version> should be a string matching a istioctl version known to istioctlenv.
+# The special version string `system' will use your default system istioctl.
+# Run `istioctlenv versions' for a list of available istioctl versions.
+
+set -e
+[ -n "$ISTIOCTLENV_DEBUG" ] && set -x
+
+# Provide istioctlenv completions
+if [ "$1" = "--complete" ]; then
+  echo --unset
+  echo system
+  exec istioctlenv-versions --bare
+fi
+
+versions=("$@")
+
+if [ "$versions" = "--unset" ]; then
+  rm -f .istioctl-version
+elif [ -n "$versions" ]; then
+  istioctlenv-version-file-write .istioctl-version "${versions[@]}"
+else
+  if version_file="$(istioctlenv-version-file "$PWD")"; then
+    IFS=: versions=($(istioctlenv-version-file-read "$version_file"))
+    for version in "${versions[@]}"; do
+      echo "$version"
+    done
+  else
+    echo "istioctlenv: no local version configured for this directory" >&2
+    exit 1
+  fi
+fi

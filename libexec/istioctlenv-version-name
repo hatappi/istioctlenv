@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Summary: Show the current istioctl version
+# Usage: istioctlenv version-name
+set -e
+[ -n "$ISTIOCTLENV_DEBUG" ] && set -x
+
+if [ -z "$ISTIOCTLENV_VERSION" ]; then
+  ISTIOCTLENV_VERSION_FILE="$(istioctlenv-version-file)"
+  ISTIOCTLENV_VERSION="$(istioctlenv-version-file-read "$ISTIOCTLENV_VERSION_FILE" || true)"
+fi
+
+OLDIFS="$IFS"
+IFS=$'\n' scripts=(`istioctlenv-hooks version-name`)
+IFS="$OLDIFS"
+for script in "${scripts[@]}"; do
+  source "$script"
+done
+
+if [ -z "$ISTIOCTLENV_VERSION" ] || [ "$ISTIOCTLENV_VERSION" = "system" ]; then
+  echo "system"
+  exit
+fi
+
+version_exists() {
+  local version="$1"
+  [ -d "${ISTIOCTLENV_ROOT}/versions/${version}" ]
+}
+
+versions=()
+OLDIFS="$IFS"
+{
+  IFS=:
+  any_not_installed=0
+  for version in ${ISTIOCTLENV_VERSION}; do
+    if version_exists "$version" || [ "$version" = "system" ]; then
+      versions=("${versions[@]}" "${version}")
+    elif version_exists "${version#istioctl-}"; then
+      versions=("${versions[@]}" "${version#istioctl-}")
+    else
+      echo "istioctlenv: version '$version' is not installed (set by $(istioctlenv-version-origin))" >&2
+      any_not_installed=1
+    fi
+  done
+}
+IFS="$OLDIFS"
+
+OLDIFS="$IFS"
+{
+  IFS=:
+  echo "${versions[*]}"
+}
+IFS="$OLDIFS"
+
+if [ "$any_not_installed" = 1 ]; then
+  exit 1
+fi

@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+#
+# Summary: Display the full path to an executable
+#
+# Usage: istioctlenv which <command>
+#
+# Displays the full path to the executable that istioctlenv will invoke when
+# you run the given command.
+
+set -e
+[ -n "$ISTIOCTLENV_DEBUG" ] && set -x
+
+# Provide istioctlenv completions
+if [ "$1" = "--complete" ]; then
+  exec istioctlenv-shims --short
+fi
+
+ISTIOCTLENV_COMMAND="$1"
+
+if [ -z "$ISTIOCTLENV_COMMAND" ]; then
+  istioctlenv-help --usage which >&2
+  exit 1
+fi
+
+OLDIFS="$IFS"
+IFS=: versions=(${ISTIOCTLENV_VERSION:-$(istioctlenv-version-name)})
+IFS="$OLDIFS"
+
+remove_from_path() {
+  local path_to_remove="$1"
+  local path_before
+  local result=":$PATH:"
+  while [ "$path_before" != "$result" ]; do
+    path_before="$result"
+    result="${result//:$path_to_remove:/:}"
+  done
+  result="${result%:}"
+  echo "${result#:}"
+}
+
+for version in "${versions[@]}"; do
+  if [ "$version" = "system" ]; then
+    PATH="$(remove_from_path "${ISTIOCTLENV_ROOT}/shims")"
+    ISTIOCTLENV_COMMAND_PATH="$(command -v "$ISTIOCTLENV_COMMAND" || true)"
+  else
+    ISTIOCTLENV_COMMAND_PATH="${ISTIOCTLENV_ROOT}/versions/${version}/bin/${ISTIOCTLENV_COMMAND}"
+  fi
+  if [ -x "$ISTIOCTLENV_COMMAND_PATH" ]; then
+    break
+  elif [[ "$version" != "system" ]]; then
+    ISTIOCTLENV_COMMAND_PATH="${HOME}/istioctl/${version}/bin/${ISTIOCTLENV_COMMAND}"
+    if [ -x "$ISTIOCTLENV_COMMAND_PATH" ]; then
+      break
+    fi
+  fi
+done
+
+OLDIFS="$IFS"
+IFS=$'\n' scripts=(`istioctlenv-hooks which`)
+IFS="$OLDIFS"
+for script in "${scripts[@]}"; do
+  source "$script"
+done
+
+if [ -x "$ISTIOCTLENV_COMMAND_PATH" ]; then
+  echo "$ISTIOCTLENV_COMMAND_PATH"
+  exit 0
+fi
+
+any_not_installed=0
+for version in "${versions[@]}"; do
+  if [ "$version" = "system" ]; then
+    continue
+  fi
+  if ! [ -d "${ISTIOCTLENV_ROOT}/versions/${version}" ]; then
+    echo "istioctlenv: version '$version' is not installed (set by $(istioctlenv-version-origin))" >&2
+    any_not_installed=1
+  fi
+done
+if [ "$any_not_installed" = 1 ]; then
+  exit 1
+fi
+
+echo "istioctlenv: '$ISTIOCTLENV_COMMAND' command not found" >&2
+
+versions="$(istioctlenv-whence "$ISTIOCTLENV_COMMAND" || true)"
+if [ -n "$versions" ]; then
+  {
+    echo
+    echo "The '$1' command exists in these istioctl versions:"
+    echo "$versions" | sed 's/^/  /g'
+    echo
+  } >&2
+fi
+
+exit 127

@@ -1,0 +1,168 @@
+#!/usr/bin/env bash
+# Summary: Configure the shell environment for istioctlenv
+# Usage: eval "$(istioctlenv init - [--no-rehash] [<shell>])"
+
+set -e
+[ -n "$ISTIOCTLENV_DEBUG" ] && set -x
+
+# Provide istioctlenv completions
+if [ "$1" = "--complete" ]; then
+  echo -
+  echo --no-rehash
+  echo bash
+  echo fish
+  echo ksh
+  echo zsh
+  exit
+fi
+
+print=""
+no_rehash=""
+for args in "$@"
+do
+  if [ "$args" = "-" ]; then
+    print=1
+    shift
+  fi
+
+  if [ "$args" = "--no-rehash" ]; then
+    no_rehash=1
+    shift
+  fi
+done
+
+shell="$1"
+if [ -z "$shell" ]; then
+  shell="$(ps -p "$PPID" -o 'args=' 2>/dev/null || true)"
+  shell="${shell%% *}"
+  shell="${shell##-}"
+  shell="${shell:-$SHELL}"
+  shell="${shell##*/}"
+fi
+
+root="${0%/*}/.."
+
+if [ -z "$print" ]; then
+  case "$shell" in
+  bash )
+    if [ -f "${HOME}/.bashrc" ] && [ ! -f "${HOME}/.bash_profile" ]; then
+      profile='~/.bashrc'
+    else
+      profile='~/.bash_profile'
+    fi
+    ;;
+  zsh )
+    profile='~/.zshrc'
+    ;;
+  ksh )
+    profile='~/.profile'
+    ;;
+  fish )
+    profile='~/.config/fish/config.fish'
+    ;;
+  * )
+    profile="<unknown shell: $shell, replace with your profile path>"
+    ;;
+  esac
+
+  {
+    echo "# Load istioctlenv automatically by appending"
+    echo "# the following to ${profile}:"
+    echo
+    case "$shell" in
+    fish )
+      echo 'status --is-interactive; and source (istioctlenv init -|psub)'
+      ;;
+    * )
+      echo 'eval "$(istioctlenv init -)"'
+      ;;
+    esac
+    echo
+  } >&2
+
+  exit 0
+fi
+
+mkdir -p "${ISTIOCTLENV_ROOT}/"{shims,versions}
+
+case "$shell" in
+fish )
+  echo "set -gx ISTIOCTLENV_SHELL $shell"
+  echo "set -gx ISTIOCTLENV_ROOT $ISTIOCTLENV_ROOT"
+
+  echo 'if not contains $ISTIOCTLENV_ROOT/shims $PATH'
+  echo '  set -gx PATH $ISTIOCTLENV_ROOT/shims $PATH'
+  echo 'end'
+  ;;
+* )
+  echo "export ISTIOCTLENV_SHELL=$shell"
+  echo "export ISTIOCTLENV_ROOT=$ISTIOCTLENV_ROOT"
+
+  echo 'if [ "${PATH#*$ISTIOCTLENV_ROOT/shims}" = "${PATH}" ]; then'
+  echo '  export PATH="$ISTIOCTLENV_ROOT/shims:$PATH"'
+  echo 'fi'
+  ;;
+esac
+
+completion="${root}/completions/istioctlenv.${shell}"
+if [ -r "$completion" ]; then
+  echo "source '$completion'"
+fi
+
+if [ -z "$no_rehash" ]; then
+  echo 'command istioctlenv rehash 2>/dev/null'
+fi
+
+commands=(`istioctlenv-commands --sh`)
+case "$shell" in
+fish )
+  cat <<EOS
+function istioctlenv
+  set command \$argv[1]
+  set -e argv[1]
+
+  switch "\$command"
+  case ${commands[*]}
+    source (istioctlenv "sh-\$command" \$argv|psub)
+  case '*'
+    command istioctlenv "\$command" \$argv
+  end
+end
+EOS
+  ;;
+ksh )
+  cat <<EOS
+function istioctlenv {
+  typeset command
+EOS
+  ;;
+* )
+  cat <<EOS
+istioctlenv() {
+  local command
+EOS
+  ;;
+esac
+
+if [ "$shell" != "fish" ]; then
+IFS="|"
+cat <<EOS
+  command="\$1"
+  if [ "\$#" -gt 0 ]; then
+    shift
+  fi
+
+  case "\$command" in
+  ${commands[*]})
+    eval "\$(istioctlenv "sh-\$command" "\$@")";;
+  *)
+    command istioctlenv "\$command" "\$@";;
+  esac
+}
+EOS
+fi
+
+# NOTE: Rehash again, but only to export managed paths
+cat <<EOS
+istioctlenv rehash --only-manage-paths
+EOS

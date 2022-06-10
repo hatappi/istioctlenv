@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Summary: List all istioctl versions that contain the given executable
+# Usage: istioctlenv whence [--path] <command>
+
+set -e
+[ -n "$ISTIOCTLENV_DEBUG" ] && set -x
+
+# Provide istioctlenv completions
+if [ "$1" = "--complete" ]; then
+  echo --path
+  exec istioctlenv-shims --short
+fi
+
+if [ "$1" = "--path" ]; then
+  print_paths="1"
+  shift 1
+else
+  print_paths=""
+fi
+
+ISTIOCTLENV_COMMAND="$1"
+if [ -z "$ISTIOCTLENV_COMMAND" ]; then
+  istioctlenv-help --usage whence >&2
+  exit 1
+fi
+
+whence() {
+  local command="$1"
+  istioctlenv-versions --bare | while read version; do
+    path="$(istioctlenv-prefix "$version")/bin/${command}"
+
+    [ "$print_paths" ] && echo "$path" || echo "$version"
+  done
+}
+
+result="$(whence "$ISTIOCTLENV_COMMAND")"
+[ -n "$result" ] && echo "$result"
