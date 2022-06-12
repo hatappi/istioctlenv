@@ -193,7 +193,7 @@ environment variable in your shell. This version overrides
 specific versions and the global version.
 
 ```shell
-➜ istioctlenv shell 1.5.4
+➜ istioctlenv shell 1.14.0
 ```
 
 When run without a version number, `istioctlenv shell` reports the current
@@ -208,7 +208,7 @@ prefer not to use shell integration, you may simply set the
 `ISTIOCTLENV_VERSION` variable yourself:
 
 ```shell
-> export ISTIOCTLENV_VERSION=1.14.0
+➜ export ISTIOCTLENV_VERSION=1.14.0
 ```
 
 ## `istioctlenv shims`
