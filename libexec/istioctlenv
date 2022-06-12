@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+set -e
+export -n CDPATH
+
+if [ "$1" = "--debug" ]; then
+  export ISTIOCTLENV_DEBUG=1
+  shift
+fi
+
+if [ -n "$ISTIOCTLENV_DEBUG" ]; then
+  export PS4='+ [${BASH_SOURCE##*/}:${LINENO}] '
+  set -x
+fi
+
+abort() {
+  { if [ "$#" -eq 0 ]; then cat -
+    else echo "istioctlenv: $*"
+    fi
+  } >&2
+  exit 1
+}
+
+if enable -f "${BASH_SOURCE%/*}"/../libexec/istioctlenv-realpath.dylib realpath 2>/dev/null; then
+  abs_dirname() {
+    local path="$(realpath "$1")"
+    echo "${path%/*}"
+  }
+else
+  [ -z "$ISTIOCTLENV_NATIVE_EXT" ] || abort "failed to load 'realpath' builtin"
+
+  READLINK=$(type -p greadlink readlink | head -1)
+  [ -n "$READLINK" ] || abort "cannot find readlink - are you missing GNU coreutils?"
+
+  resolve_link() {
+    $READLINK "$1"
+  }
+
+  abs_dirname() {
+    local cwd="$PWD"
+    local path="$1"
+
+    while [ -n "$path" ]; do
+      cd "${path%/*}"
+      local name="${path##*/}"
+      path="$(resolve_link "$name" || true)"
+    done
+
+    pwd
+    cd "$cwd"
+  }
+fi
+
+if [ -z "${ISTIOCTLENV_ROOT}" ]; then
+  ISTIOCTLENV_ROOT="${HOME}/.istioctlenv"
+else
+  ISTIOCTLENV_ROOT="${ISTIOCTLENV_ROOT%/}"
+fi
+export ISTIOCTLENV_ROOT
+
+# Pass ENV_FILE_ARG from shims to ISTIOCTLENV_DIR.
+if [ -z "${ISTIOCTLENV_DIR}" ]; then
+  if [ -n "${ISTIOCTLENV_FILE_ARG}" ]; then
+    if [ -L "${ISTIOCTLENV_FILE_ARG}" ]; then
+      ISTIOCTLENV_DIR="$(abs_dirname "${ISTIOCTLENV_FILE_ARG}")"
+    else
+      ISTIOCTLENV_DIR="${ISTIOCTLENV_FILE_ARG%/*}"
+    fi
+    export ISTIOCTLENV_DIR
+    unset ISTIOCTLENV_FILE_ARG
+  fi
+fi
+
+if [ -z "${ISTIOCTLENV_DIR}" ]; then
+  ISTIOCTLENV_DIR="$PWD"
+else
+  cd "$ISTIOCTLENV_DIR" 2>/dev/null || abort "cannot change working directory to '$ISTIOCTLENV_DIR'"
+  ISTIOCTLENV_DIR="$PWD"
+  cd "$OLDPWD"
+fi
+export ISTIOCTLENV_DIR
+
+
+shopt -s nullglob
+
+bin_path="$(abs_dirname "$0")"
+for plugin_bin in "${bin_path%/*}/plugins/"*/bin; do
+  PATH="${plugin_bin}:${PATH}"
+done
+for plugin_bin in "${ISTIOCTLENV_ROOT}/plugins/"*/bin; do
+  PATH="${plugin_bin}:${PATH}"
+done
+export PATH="${bin_path}:${PATH}"
+
+ISTIOCTLENV_HOOK_PATH="${ISTIOCTLENV_HOOK_PATH}:${ISTIOCTLENV_ROOT}/istioctlenv.d"
+if [ "${bin_path%/*}" != "$ISTIOCTLENV_ROOT" ]; then
+  # Add istioctlenv's own `istioctlenv.d` unless istioctlenv was cloned to ISTIOCTLENV_ROOT
+  ISTIOCTLENV_HOOK_PATH="${ISTIOCTLENV_HOOK_PATH}:${bin_path%/*}/istioctlenv.d"
+fi
+ISTIOCTLENV_HOOK_PATH="${ISTIOCTLENV_HOOK_PATH}:/usr/local/etc/istioctlenv.d:/etc/istioctlenv.d:/usr/lib/istioctlenv/hooks"
+for plugin_hook in "${ISTIOCTLENV_ROOT}/plugins/"*/etc/istioctlenv.d; do
+  ISTIOCTLENV_HOOK_PATH="${ISTIOCTLENV_HOOK_PATH}:${plugin_hook}"
+done
+ISTIOCTLENV_HOOK_PATH="${ISTIOCTLENV_HOOK_PATH#:}"
+export ISTIOCTLENV_HOOK_PATH
+
+shopt -u nullglob
+
+
+command="$1"
+case "$command" in
+"" )
+  {
+    istioctlenv---version
+    istioctlenv-help
+  } | abort
+  ;;
+-v | --version )
+  exec istioctlenv---version
+  ;;
+-h | --help )
+  exec istioctlenv-help
+  ;;
+* )
+  if [ "$command" = "shell" ] && [ -z "${ISTIOCTLENV_SHELL}" ]; then
+    echo 'eval "$(istioctlenv init -)" has not been executed.'
+    echo "Please read the installation instructions in the README.md at github.com/hatappi/istioctlenv"
+    echo "or run 'istioctlenv help init' for more information"
+    exit 1
+  fi
+
+  command_path="$(command -v "istioctlenv-$command" || true)"
+  [ -n "$command_path" ] || abort "no such command '$command'"
+
+  shift 1
+  if [ "$1" = --help ]; then
+    exec istioctlenv-help "$command"
+  else
+    exec "$command_path" "$@"
+  fi
+  ;;
+esac

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Summary: Display the version
+#
+# Displays the version number of this release
+
+set -e
+[ -n "$ISTIOCTLENV_DEBUG" ] && set -x
+
+version="1.0.0"
+
+echo "istioctlenv ${version}"

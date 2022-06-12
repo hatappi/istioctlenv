@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Usage: istioctlenv version-file [<dir>]
+# Summary: Detect the file that sets the current istioctlenv version
+set -e
+[ -n "$ISTIOCTLENV_DEBUG" ] && set -x
+
+target_dir="$1"
+
+find_local_version_file() {
+  local root="$1"
+  while ! [[ "$root" =~ ^//[^/]*$ ]]; do
+    if [ -e "${root}/.istioctl-version" ]; then
+      echo "${root}/.istioctl-version"
+      return 0
+    fi
+
+    if [ -z "$root" ]; then
+      break
+    fi
+
+    root="${root%/*}"
+  done
+  return 1
+}
+
+if [ -n "$target_dir" ]; then
+  find_local_version_file "$target_dir"
+else
+  find_local_version_file "$ISTIOCTLENV_DIR" || {
+    [ "$ISTIOCTLENV_DIR" != "$PWD" ] && find_local_version_file "$PWD"
+  } || echo "${ISTIOCTLENV_ROOT}/version"
+fi
