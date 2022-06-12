@@ -6,6 +6,6 @@
 set -e
 [ -n "$ISTIOCTLENV_DEBUG" ] && set -x
 
-version="1.0.0"
+version="1.0.1"
 
 echo "istioctlenv ${version}"
