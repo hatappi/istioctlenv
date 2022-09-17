@@ -81,4 +81,4 @@ cat <<EOF
 EOF
 output_path="${ROOT_DIR}/plugins/istioctl-build/share/istioctl-build/${TAG}"
 echo $output_path
-echo $output > $output_path
+echo -e $output > $output_path
