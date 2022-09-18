@@ -9,6 +9,6 @@ set -e
 SCRIPT_DIR=$(cd $(dirname $0); pwd)
 ROOT_DIR=${SCRIPT_DIR}/..
 
-version=$(cat ${ROOT_DIR}/VERSION)
+version=$(cat ${ROOT_DIR}/ISTIOCTLENV_VERSION)
 
 echo "istioctlenv ${version}"
