@@ -32,5 +32,5 @@
 [tagpr]
 	vPrefix = true
 	releaseBranch = main
-	versionFile = ISTIOCTLENV_VERSION
+	versionFile = "ISTIOCTLENV_VERSION"
         changelog = false
