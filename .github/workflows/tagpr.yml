@@ -10,6 +10,3 @@ jobs:
     - uses: Songmu/tagpr@v0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        versionFile: VERSION
-        vPrefix: true
