@@ -1,0 +1,7 @@
+install_darwin_64bit "istioctl Darwin 64bit 1.19.10" "https://github.com/istio/istio/releases/download/1.19.10/istioctl-1.19.10-osx.tar.gz#b9cb4e2bcfb7c4ab499f064beedff5525c726de9c51dc246dbeefffafb6752a6"
+
+install_darwin_arm "istioctl Darwin arm 1.19.10" "https://github.com/istio/istio/releases/download/1.19.10/istioctl-1.19.10-osx-arm64.tar.gz#d8e6e5999ad2e93f44c9a28278a50e3853aa6400f2118f889ad8b78909988911"
+
+install_linux_64bit "istioctl Linux 64bit 1.19.10" "https://github.com/istio/istio/releases/download/1.19.10/istioctl-1.19.10-linux-amd64.tar.gz#646cb143b6d5183749a5c078bc14e17187e75dd77a21a602a83d4ff08b96b3ae"
+
+install_linux_arm_64bit "istioctl Linux arm 64bit 1.19.10" "https://github.com/istio/istio/releases/download/1.19.10/istioctl-1.19.10-linux-arm64.tar.gz#f1c94839c7d89f33aab852c04ff6c04bec1eee3e4d52683dfbca80eff14b7bdd"
